@@ -25,6 +25,6 @@ class TextPreprocessor:
     
     def preprocess(self, text):
         cleaned_text = self.clean_text(text)
-        tokens = self.tokenize_and_lemmatize(cleaned_text)
+        tokens = self.tokenize(cleaned_text)
         return ' '.join(tokens)
 
