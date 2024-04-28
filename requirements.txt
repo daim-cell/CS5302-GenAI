@@ -1,0 +1,8 @@
+openai
+langchain
+langchain_community
+gradio 
+pypdf
+weaviate-client 
+sentence-transformers  
+PyPDF2
