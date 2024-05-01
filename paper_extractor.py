@@ -6,7 +6,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.load import dumps, loads
 from langchain_community.llms import HuggingFaceEndpoint
 from langchain_community.document_loaders import ArxivLoader
-from config import CLUSTER_URL, WEAVIATE_AUTH_KEY, HUGGINGFACEHUB_API_TOKEN, PICK_PAPERS_TO_SCRAP
+from config import CLUSTER_URL, WEAVIATE_AUTH_KEY, HUGGINGFACEHUB_API_TOKEN, PICK_PAPERS_TO_SCRAP, QUERIES_TO_PERFORM
 
 
 # Multi Query: Different Perspectives
@@ -24,21 +24,34 @@ def query_similar_papers(client, query_text):
     )
     return results
 
-def get_unique_docs(queries, collection):
-    unique_titles = set()
-    unique_docs = []
+def reciprocal_rank_fusion(queries, collection, k=60):
+    """ Reciprocal_rank_fusion that takes multiple lists of ranked documents 
+        and an optional parameter k used in the RRF formula """
+    
+    # Initialize a dictionary to hold fused scores for each unique document
+    fused_scores = {}
     for query in queries:
-        if query != '':
-            result = query_similar_papers(collection, query)
-            for obj in result.objects:
-                paper_title = obj.properties['paper_title']
-                if paper_title not in unique_titles:
-                    unique_titles.add(paper_title)
-                    unique_docs.append(obj.properties)
-    return unique_docs
+        results = query_similar_papers(collection, query)
+            # Iterate through each document in the list, with its rank (position in the list)
+        for rank, paper in enumerate(results.objects):
+            # Convert the document to a string format to use as a key (assumes documents can be serialized to JSON)
+            title = dumps(paper.properties['paper_id'])
+            # If the document is not yet in the fused_scores dictionary, add it with an initial score of 0
+            if title not in fused_scores:
+                fused_scores[title] = 0
+            fused_scores[title] += 1 / (rank + k)
+
+    # Sort the documents based on their fused scores in descending order to get the final reranked results
+    reranked_results = [
+        (loads(doc), score)
+        for doc, score in sorted(fused_scores.items(), key=lambda x: x[1], reverse=True)
+    ]
+    # Return the reranked results as a list of tuples, each containing the document and its fused score
+    return reranked_results
+
 
 def get_queries(llm, query_text):
-    template = """You are an AI language model assistant. Your task is to generate three 
+    template = """You are an AI language model assistant. Your task is to generate {queries} 
     different versions of the given user question to retrieve relevant documents from a vector 
     database. By generating multiple perspectives on the user question, your goal is to help
     the user overcome some of the limitations of the distance-based similarity search. 
@@ -50,7 +63,7 @@ def get_queries(llm, query_text):
     | StrOutputParser() 
     | (lambda x: x.split("\n"))
     )
-    queries  = generate_queries.invoke({'question':query_text})
+    queries  = generate_queries.invoke({'question':query_text, 'queries': QUERIES_TO_PERFORM })
     return queries
 
 # def get_papers(docs):
@@ -60,49 +73,49 @@ def get_queries(llm, query_text):
 #     return data
 
 def get_papers(docs): 
-    # picking 5 out of 15 docs
-    docs = docs[:PICK_PAPERS_TO_SCRAP] 
 
-    data = []
+
 
     if not docs:
         print("no documents provided.")
         return []
 
+    ranked_papers = []
     # Load all papers first 
     print('\n')
     for index, doc in enumerate(docs):
         # print(f"loading paper {index+1}/{len(docs)} with ID {doc['paper_id']}")
         try:
-            loaded_paper = ArxivLoader(query=doc['paper_id'], load_max_docs=1).load()
+            loaded_paper = ArxivLoader(query=doc[0], load_max_docs=1).load()
             if loaded_paper:
                 paper_content = loaded_paper[0].page_content
                 word_count = len(paper_content.split())  # Count words by splitting the content by spaces
                 page_count = loaded_paper[0].num_pages if hasattr(loaded_paper[0], 'num_pages') else 'Unknown'  # Get the number of pages if available
-                data.append((loaded_paper, word_count, page_count, doc['paper_id']))
-                print(f"paper {index+1} loaded, https://arxiv.org/pdf/{doc['paper_id']}.pdf, word-count: {word_count}, page-count: {page_count}, {index}/{len(docs)} ...")
+                if len(ranked_papers) < PICK_PAPERS_TO_SCRAP and word_count<10000:
+                    ranked_papers.append((loaded_paper, word_count, page_count, doc[0]))
+                print(f"paper {index+1} loaded, https://arxiv.org/pdf/{doc[0]}.pdf, word-count: {word_count}, page-count: {page_count}, {index}/{len(docs)} ...")
             else:
-                print(f"paper {index+1} https://arxiv.org/pdf/{doc['paper_id']}.pdf, did not load properly...")
+                print(f"paper {index+1} https://arxiv.org/pdf/{doc[0]}.pdf, did not load properly...")
         except Exception as e:
-            print(f"error loading paper {index+1} https://arxiv.org/pdf/{doc['paper_id']}.pdf, error: {str(e)} ...")
+            print(f"error loading paper {index+1} https://arxiv.org/pdf/{doc[0]}.pdf, error: {str(e)} ...")
             continue   
 
 
-    if not data:
+    if not ranked_papers:
         print("no data was loaded successfully.")
         return []
  
-    sorted_papers = sorted(data, key=lambda x: x[1])   
+    # sorted_papers = sorted(data, key=lambda x: x[1])   
  
-    shortest_papers = sorted_papers[:5]
+    # shortest_papers = sorted_papers[:PICK_PAPERS_TO_SCRAP]
     
     print('\n')
-    for i, (paper, word_count, page_count, pid) in enumerate(shortest_papers, 1):
+    for i, (paper, word_count, page_count, pid) in enumerate(ranked_papers, 1):
         print(f"selected papers {i}: https://arxiv.org/pdf/{pid}.pdf, word-count = {word_count}, page-count = {page_count}")
 
     # out = [paper[0] for paper, word_count, page_count, pid in shortest_papers]
     out = []
-    for paper, word_count, page_count, pid in shortest_papers: 
+    for paper, word_count, page_count, pid in ranked_papers: 
 
         paper_data = {
             'paper': paper[0],  
@@ -132,18 +145,16 @@ def call_extractor(query_text):
         llm = HuggingFaceEndpoint(repo_id = 'mistralai/Mistral-7B-Instruct-v0.2', huggingfacehub_api_token = HUGGINGFACEHUB_API_TOKEN)
         
         queries = get_queries(llm, query_text)
-        
-        unique_docs = get_unique_docs(queries, collection)
-        
-        papers = get_papers(unique_docs)  
+        ranked_ids = reciprocal_rank_fusion(queries, collection)
+        papers = get_papers(ranked_ids)  
         # print("*********",papers[0].metadata)
         # print("*********",papers[0].keys())
         # print("-------------", papers[0]['pid'])
         # print("-------------", papers[0]['word_count'])
         #['Config', '__abstractmethods__', '__annotations__', '__class__', '__class_vars__', '__config__', '__custom_root_type__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__exclude_fields__', '__fields__', '__fields_set__', '__format__', '__ge__', '__get_validators__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__include_fields__', '__init__', '__init_subclass__', '__iter__', '__json_encoder__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__post_root_validators__', '__pre_root_validators__', '__pretty__', '__private_attributes__', '__reduce__', '__reduce_ex__', '__repr__', '__repr_args__', '__repr_name__', '__repr_str__', '__rich_repr__', '__schema_cache__', '__setattr__', '__setstate__', '__signature__', '__sizeof__', '__slots__', '__str__', '__subclasshook__', '__try_update_forward_refs__', '__validators__', '_abc_impl', '_calculate_keys', '_copy_and_set_values', '_decompose_class', '_enforce_dict_if_root', '_get_value', '_init_private_attributes', '_iter', '_lc_kwargs', 'construct', 'copy', 'dict', 'from_orm', 'get_lc_namespace', 'is_lc_serializable', 'json', 'lc_attributes', 'lc_id', 'lc_secrets', 'metadata', 'page_content', 'parse_file', 'parse_obj', 'parse_raw', 'schema', 'schema_json', 'to_json', 'to_json_not_implemented', 'type', 'update_forward_refs', 'validate']
-        print('\n')
-        for i, paper in enumerate(papers):   
-            print("extracted paper https://arxiv.org/pdf/"+paper['pid']+".pdf - "+str(i)+"/"+str(len(papers))+ " ...")
+        # print('\n')
+        # for i, paper in enumerate(papers):   
+        #     print("extracted paper https://arxiv.org/pdf/"+paper['pid']+".pdf - "+str(i)+"/"+str(len(papers))+ " ...")
             # meta_data.append(papers[i]['paper'].metadata)
             # paper_content.append(papers[i]['paper'].page_content)
 

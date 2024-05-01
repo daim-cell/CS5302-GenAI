@@ -62,8 +62,8 @@ def trim_to_max_tokens(content):
 def call_scrapper(papers):
     scrapped_papers = [] 
     for i,paper in enumerate(papers):
-        paper = papers[i]['paper']
-        pid = papers[i]['pid']
+        pap = paper['paper']
+        pid = paper['pid']
         url = "https://arxiv.org/pdf/"+pid+".pdf"
 
         paper_text = getpaper_text(url)
@@ -75,7 +75,7 @@ def call_scrapper(papers):
         elif "references" in cleaned_paper_text:
             scrapped_content = cleaned_paper_text.split("references")[0]
         else:
-            scrapped_content = cleaned_paper_text.split("REFERENCES")[0]
+            scrapped_content = cleaned_paper_text.split("References")[0]
 
  
         scrapped_content = trim_to_max_tokens(scrapped_content)

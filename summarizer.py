@@ -37,7 +37,7 @@ def call_summarizer(scrapped_papers):
  
  
         try:
-            prompt = [ {"role": "system", "content": "You are a helpful research assistant."},{"role": "user", "content": f"Summarize this: {scrapped_content}"}]
+            prompt = [ {"role": "system", "content": "You are a helpful research assistant specializing in summarization, your objective is to generate concise versions of the user's query."},{"role": "user", "content": f"Summarize this: {scrapped_content}"}]
             model = "gpt-3.5-turbo"
             response = client.chat.completions.create(
                             model= model,
