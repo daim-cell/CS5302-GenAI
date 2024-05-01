@@ -6,7 +6,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.load import dumps, loads
 from langchain_community.llms import HuggingFaceEndpoint
 from langchain_community.document_loaders import ArxivLoader
-from config import CLUSTER_URL, WEAVIATE_AUTH_KEY, HUGGINGFACEHUB_API_TOKEN, PICK_PAPERS_TO_SCRAP, QUERIES_TO_PERFORM
+from config import CLUSTER_URL, WEAVIATE_AUTH_KEY, HUGGINGFACEHUB_API_TOKEN, PICK_PAPERS_TO_SCRAP, QUERIES_TO_PERFORM, TOP_K_SEARCH
 
 
 # Multi Query: Different Perspectives
@@ -20,7 +20,7 @@ def query_similar_papers(client, query_text):
     vec = generate_embeddings(query_text)
     results = client.query.near_vector(
         near_vector=vec,  # A list of floating point numbers
-                limit=5,
+                limit=TOP_K_SEARCH,
     )
     return results
 
@@ -30,16 +30,18 @@ def reciprocal_rank_fusion(queries, collection, k=60):
     
     # Initialize a dictionary to hold fused scores for each unique document
     fused_scores = {}
+    print(queries)
     for query in queries:
-        results = query_similar_papers(collection, query)
-            # Iterate through each document in the list, with its rank (position in the list)
-        for rank, paper in enumerate(results.objects):
-            # Convert the document to a string format to use as a key (assumes documents can be serialized to JSON)
-            title = dumps(paper.properties['paper_id'])
-            # If the document is not yet in the fused_scores dictionary, add it with an initial score of 0
-            if title not in fused_scores:
-                fused_scores[title] = 0
-            fused_scores[title] += 1 / (rank + k)
+        if query != '' and 'query' not in query.lower():
+            results = query_similar_papers(collection, query)
+                # Iterate through each document in the list, with its rank (position in the list)
+            for rank, paper in enumerate(results.objects):
+                # Convert the document to a string format to use as a key (assumes documents can be serialized to JSON)
+                title = dumps(paper.properties['paper_id'])
+                # If the document is not yet in the fused_scores dictionary, add it with an initial score of 0
+                if title not in fused_scores:
+                    fused_scores[title] = 0
+                fused_scores[title] += 1 / (rank + k)
 
     # Sort the documents based on their fused scores in descending order to get the final reranked results
     reranked_results = [
@@ -52,10 +54,10 @@ def reciprocal_rank_fusion(queries, collection, k=60):
 
 def get_queries(llm, query_text):
     template = """You are an AI language model assistant. Your task is to generate {queries} 
-    different versions of the given user question to retrieve relevant documents from a vector 
-    database. By generating multiple perspectives on the user question, your goal is to help
-    the user overcome some of the limitations of the distance-based similarity search. 
-    Provide these alternative questions separated by newlines. Original question: {question}"""
+    different versions of the given user query to retrieve relevant documents from a vector 
+    database. By generating multiple perspectives on the user query, your goal is to help
+    the user overcome some of the limitations of the distance-based similarity search.
+    Provide these alternative queries separated by newlines and do not include any other text. Original question: {question}"""
     prompt_perspectives = ChatPromptTemplate.from_template(template)
     generate_queries = (
     prompt_perspectives 

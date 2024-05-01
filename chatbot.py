@@ -5,6 +5,7 @@ from langchain.schema import(SystemMessage, HumanMessage, AIMessage)
 import paper_extractor
 import scrapper
 import summarizer
+import generator
 
 def init_style() -> None:
     with open('style.css') as f:
@@ -60,6 +61,10 @@ def get_answer(user_query):
   summarized_url = summarized_papers[0]['url']
   summarized_content = summarized_papers[0]['summarized_content']
   
+  print("\n\n-----------------------------------------------------SUMMARIZING SCRAPPED CONTENT---------------------------------------------------------\n\n")
+  generated_response = generator.generation(summarized_papers, user_query)
+  print("\nRECEIVED FROM GENERATOR => "+ generated_response)
+ 
   
   return summarized_url , summarized_content
 
