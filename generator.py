@@ -12,7 +12,6 @@ def generation(summarized_content, query):
  
         client = openai.OpenAI(api_key=openai.api_key) 
  
- 
         try:
             content = ''
             for i, summary in enumerate(summarized_content):
@@ -31,4 +30,6 @@ def generation(summarized_content, query):
         except Exception as e: 
             print(f"an error occurred while generation: {e}")
         
-        return generated_content
+        # TODO : 
+        template_output = " Please add another output here"
+        return template_output, generated_content

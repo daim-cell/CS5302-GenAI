@@ -10,3 +10,7 @@
 
 ## WORK-FLOW:
     - Chatbot -> Process the Query, Get Similar papers -> Extract the content, exclude the reference -> Summarizer
+
+# TODO's:
+    - Please comment `print("USER QUERY: ", user_query)` chatboy.py-line:42 before final build
+    - Please change `template_output = " Please add another output here"` generator.py-line:34 to what you want to show in answer block 01  

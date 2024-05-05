@@ -33,6 +33,8 @@ def init_messages() -> None:
 def get_answer(user_query):  
   # Call Query.py here
   # print(type(user_query))
+  # TODO:
+  # uncomment this to get what user enters
   user_query =  'deep learning in natural language processing'  
 
 
@@ -61,12 +63,12 @@ def get_answer(user_query):
   summarized_url = summarized_papers[0]['url']
   summarized_content = summarized_papers[0]['summarized_content']
   
-  print("\n\n-----------------------------------------------------SUMMARIZING SCRAPPED CONTENT---------------------------------------------------------\n\n")
-  generated_response = generator.generation(summarized_papers, user_query)
+  print("\n\n-----------------------------------------------------GENERATING FROM SUMMARIZED CONTENT---------------------------------------------------------\n\n")
+  template_output, generated_response = generator.generation(summarized_papers, user_query)
   print("\nRECEIVED FROM GENERATOR => "+ generated_response)
- 
-  
-  return summarized_url , summarized_content
+  # concatenated_urls = ', '.join(paper['url'] for paper in summarized_papers[0] if 'url' in paper)
+  # print(concatenated_urls) 
+  return "User Query: "+user_query+" ..\n "+template_output , generated_response
 
 def truncate_message(message_content):
     # Truncate message to 20 characters and add ellipses if longer
@@ -81,9 +83,9 @@ def main() -> None:
     if user_input := st.chat_input("Input your article to get references!"):
         st.session_state.messages.append(HumanMessage(content=user_input))
         with st.spinner("Bot is typing ..."):
-            answer1, answer2 = get_answer(user_input)
+            answer1, generated_response = get_answer(user_input)
             # print(answer1, answer2)
-            st.session_state.messages.append(AIMessage(content=[answer1,answer2])) 
+            st.session_state.messages.append(AIMessage(content=[answer1,generated_response])) 
 
     
     messages = st.session_state.get("messages", [])
@@ -91,7 +93,7 @@ def main() -> None:
         if isinstance(message, AIMessage):
             with st.chat_message("assistant"):
                 st.markdown(f"""<div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>Answer 01: </h6>{message.content[0]}</div>
-                            <div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>Answer 02: </h6>{message.content[1]}</div>""", 
+                            <div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>Generated Response: </h6>{message.content[1]}</div>""", 
                             unsafe_allow_html=True)   
         elif isinstance(message, HumanMessage):
             with st.chat_message("user"):
