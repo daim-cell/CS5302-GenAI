@@ -1,3 +1,4 @@
+# CS5302-GenAI
 ### Commands:
     - Ctrl+Shift+P open python terminal
     - pip install streamlit
