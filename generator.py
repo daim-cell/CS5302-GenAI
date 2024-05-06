@@ -16,7 +16,7 @@ def generation(summarized_content, query):
             content = ''
             for i, summary in enumerate(summarized_content):
                  content += f"Paper Summary {i+1}: {summary['summarized_content']}\n"
-            prompt = [ {"role": "system", "content": "You are a AI-powered educational content enhancement tool that enrich user provided content using provided research summaries. Don't mention any papers."},{"role": "user", "content": f"Based on the summaries: {content} Enhance the content '{query}'"}]
+            prompt = [ {"role": "system", "content": "You are a AI-powered educational content enhancement tool that enrich user provided content using provided research summaries. Don't mention any papers. Respond in markdown form"},{"role": "user", "content": f"Based on the summaries: {content} Enhance the content '{query}'"}]
             print(prompt[1]['content'])
             model = "gpt-3.5-turbo"
             response = client.chat.completions.create(
@@ -30,6 +30,5 @@ def generation(summarized_content, query):
         except Exception as e: 
             print(f"an error occurred while generation: {e}")
         
-        # TODO : 
-        template_output = " Please add another output here"
-        return template_output, generated_content
+        
+        return generated_content

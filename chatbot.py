@@ -6,6 +6,7 @@ import paper_extractor
 import scrapper
 import summarizer
 import generator
+from config import PAPER_TO_REF
 
 def init_style() -> None:
     with open('style.css') as f:
@@ -35,14 +36,14 @@ def get_answer(user_query):
   # print(type(user_query))
   # TODO:
   # uncomment this to get what user enters
-  user_query =  'deep learning in natural language processing'  
+  user_query =  'Coefficents of probit regression dont have a straight forward representation'  
 
 
   print("\n\n---------------------------------------------------------PROCESSING QUERY------------------------------------------------------------------\n\n")
   print("USER QUERY: ", user_query)
 
   print("\n\n---------------------------------------------------------EXTRACTING PAPERS-----------------------------------------------------------------\n\n")
-  papers = paper_extractor.call_extractor(user_query)
+  papers, refs = paper_extractor.call_extractor(user_query)
   print("\nRECEIVED FROM EXTRACTOR => "+ str(len(papers)) +" EXTRACTED PAPERS IN TOTAL")
   extracted_paper = papers[0]['paper']
   extracted_pid = papers[0]['pid']
@@ -64,11 +65,21 @@ def get_answer(user_query):
   summarized_content = summarized_papers[0]['summarized_content']
   
   print("\n\n-----------------------------------------------------GENERATING FROM SUMMARIZED CONTENT---------------------------------------------------------\n\n")
-  template_output, generated_response = generator.generation(summarized_papers, user_query)
+  generated_response = generator.generation(summarized_papers, user_query)
   print("\nRECEIVED FROM GENERATOR => "+ generated_response)
   # concatenated_urls = ', '.join(paper['url'] for paper in summarized_papers[0] if 'url' in paper)
   # print(concatenated_urls) 
-  return "User Query: "+user_query+" ..\n "+template_output , generated_response
+  template_output = ''
+  for i, ref in enumerate(refs):
+    if i+1 > PAPER_TO_REF:
+       break
+    template_output += f'### Paper {i+1}\n\n'
+    template_output += f'- **Title:** {ref["Title"]}\n'
+    template_output += f'- **Authors:** {ref["Authors"]}\n'
+    template_output += f'- **URL:** [{ref["URL"]}]({ref["URL"]})\n'
+    template_output += f'- **Page Count:** {ref["Page Count"]}\n'
+    template_output += f'- **Summary:** {ref["Summary"]}\n\n'
+  return template_output , generated_response, 
 
 def truncate_message(message_content):
     # Truncate message to 20 characters and add ellipses if longer
@@ -92,7 +103,7 @@ def main() -> None:
     for message in messages:
         if isinstance(message, AIMessage):
             with st.chat_message("assistant"):
-                st.markdown(f"""<div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>Answer 01: </h6>{message.content[0]}</div>
+                st.markdown(f"""<div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>References: </h6>{message.content[0]}</div>
                             <div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>Generated Response: </h6>{message.content[1]}</div>""", 
                             unsafe_allow_html=True)   
         elif isinstance(message, HumanMessage):

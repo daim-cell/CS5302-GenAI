@@ -30,9 +30,9 @@ def reciprocal_rank_fusion(queries, collection, k=60):
     
     # Initialize a dictionary to hold fused scores for each unique document
     fused_scores = {}
-    print(queries)
     for query in queries:
         if query != '' and 'query' not in query.lower():
+            print(query)
             results = query_similar_papers(collection, query)
                 # Iterate through each document in the list, with its rank (position in the list)
             for rank, paper in enumerate(results.objects):
@@ -76,8 +76,6 @@ def get_queries(llm, query_text):
 
 def get_papers(docs): 
 
-
-
     if not docs:
         print("no documents provided.")
         return []
@@ -85,15 +83,20 @@ def get_papers(docs):
     ranked_papers = []
     # Load all papers first 
     print('\n')
+    refs = []
+
     for index, doc in enumerate(docs):
         # print(f"loading paper {index+1}/{len(docs)} with ID {doc['paper_id']}")
         try:
             loaded_paper = ArxivLoader(query=doc[0], load_max_docs=1).load()
             if loaded_paper:
                 paper_content = loaded_paper[0].page_content
+                meta = loaded_paper[0].metadata
                 word_count = len(paper_content.split())  # Count words by splitting the content by spaces
-                page_count = loaded_paper[0].num_pages if hasattr(loaded_paper[0], 'num_pages') else 'Unknown'  # Get the number of pages if available
-                if len(ranked_papers) < PICK_PAPERS_TO_SCRAP and word_count<10000:
+                page_count = loaded_paper[0].num_pages if hasattr(loaded_paper[0], 'num_pages') else 'Unknown'
+                ref = {'Title': meta['Title'],'Authors': meta['Authors'], 'URL': f'https://arxiv.org/abs/{doc[0]}', 'Page Count': page_count, 'Summary': meta['Summary'].split('.')[0]}
+                refs.append(ref)
+                if len(ranked_papers) < PICK_PAPERS_TO_SCRAP and word_count<12000:
                     ranked_papers.append((loaded_paper, word_count, page_count, doc[0]))
                 print(f"paper {index+1} loaded, https://arxiv.org/pdf/{doc[0]}.pdf, word-count: {word_count}, page-count: {page_count}, {index}/{len(docs)} ...")
             else:
@@ -128,7 +131,7 @@ def get_papers(docs):
  
         out.append(paper_data) 
 
-    return out
+    return out, refs
 
 
 # the main function where scrapper is called
