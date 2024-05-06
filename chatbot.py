@@ -69,11 +69,12 @@ def get_answer(user_query):
   print("\nRECEIVED FROM GENERATOR => "+ generated_response)
   # concatenated_urls = ', '.join(paper['url'] for paper in summarized_papers[0] if 'url' in paper)
   # print(concatenated_urls) 
-  template_output = ''
+  template_output = ' '
   for i, ref in enumerate(refs):
     if i+1 > PAPER_TO_REF:
        break
-    template_output += f'### Paper {i+1}\n\n'
+    template_output += f'\n '
+    template_output += f'\n ### Paper {i+1} \n\n' 
     template_output += f'- **Title:** {ref["Title"]}\n'
     template_output += f'- **Authors:** {ref["Authors"]}\n'
     template_output += f'- **URL:** [{ref["URL"]}]({ref["URL"]})\n'
@@ -102,8 +103,8 @@ def main() -> None:
     messages = st.session_state.get("messages", [])
     for message in messages:
         if isinstance(message, AIMessage):
-            with st.chat_message("assistant"):
-                st.markdown(f"""<div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>References: </h6>{message.content[0]}</div>
+            with st.chat_message("assistant"): 
+                st.markdown(f"""<div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>References: </h6> {message.content[0]}</div>
                             <div style='color:white; background-color: rgb(128,128,128,0.5);margin-bottom:10px; padding:10px; border-radius: 5px; margin-bottom: 5px;'><h6>Generated Response: </h6>{message.content[1]}</div>""", 
                             unsafe_allow_html=True)   
         elif isinstance(message, HumanMessage):
