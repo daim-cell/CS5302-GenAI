@@ -1,4 +1,6 @@
 # CS5302-GenAI
+![alt text](https://github.com/daim-cell/CS5302-GenAI/blob/main/image.jpg?raw=true)
+
 ### Commands:
     - Ctrl+Shift+P open python terminal
     - pip install streamlit
